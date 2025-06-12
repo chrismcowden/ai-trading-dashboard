@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Private Trading Dashboard</title>
+    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { 
+            font-family: -apple-system, sans-serif; 
+            margin: 0; 
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 10px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .big { font-size: 32px; font-weight: bold; }
+        .positive { color: #22c55e; }
+        .negative { color: #ef4444; }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    
+    <script>
+        // No data in this file! Fetched after login
+        netlifyIdentity.init();
+        
+        function render() {
+            const user = netlifyIdentity.currentUser();
+            
+            if (!user) {
+                document.getElementById('app').innerHTML = `
+                    <div class="card" style="text-align: center; max-width: 400px; margin: 100px auto;">
+                        <h1>🔒 Private Dashboard</h1>
+                        <p>This dashboard contains private trading data</p>
+                        <button onclick="netlifyIdentity.open();">Sign in with Google</button>
+                    </div>
+                `;
+            } else {
+                // Fetch private data
+                fetchPrivateData(user);
+            }
+        }
+        
+        async function fetchPrivateData(user) {
+            document.getElementById('app').innerHTML = '<div class="card">Loading...</div>';
+            
+            try {
+                const token = await user.jwt();
+                const response = await fetch('/.netlify/functions/get-data', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                displayDashboard(data, user);
+            } catch (error) {
+                document.getElementById('app').innerHTML = '<div class="card">Error loading data</div>';
+            }
+        }
+        
+        function displayDashboard(data, user) {
+            const returnClass = data.totalReturn >= 0 ? 'positive' : 'negative';
+            
+            document.getElementById('app').innerHTML = `
+                <div style="text-align: right; margin-bottom: 10px;">
+                    ${user.email} 
+                    <button onclick="netlifyIdentity.logout();" style="margin-left: 10px;">Logout</button>
+                </div>
+                
+                <h1>📊 Trading Dashboard</h1>
+                
+                <div class="card">
+                    <div>Balance</div>
+                    <div class="big">$${(data.balance || 0).toLocaleString()}</div>
+                    <div class="${returnClass}">${data.totalReturn >= 0 ? '+' : ''}${data.totalReturn}%</div>
+                </div>
+                
+                <div class="card">
+                    <div>Open Positions: ${data.positions || 0}</div>
+                    <div>Open P&L: <span class="${data.openPnL >= 0 ? 'positive' : 'negative'}">
+                        $${(data.openPnL || 0).toFixed(2)}
+                    </span></div>
+                </div>
+                
+                ${data.alerts && data.alerts.length > 0 ? `
+                    <div class="card">
+                        <h3>Recent Alerts</h3>
+                        ${data.alerts.map(a => `<div>${a.message}</div>`).join('')}
+                    </div>
+                ` : ''}
+                
+                <div style="text-align: center; color: #666; margin-top: 20px;">
+                    Last updated: ${new Date(data.lastUpdate).toLocaleString()}
+                </div>
+            `;
+        }
+        
+        netlifyIdentity.on('login', () => {
+            render();
+            netlifyIdentity.close();
+        });
+        
+        netlifyIdentity.on('logout', () => {
+            render();
+        });
+        
+        render();
+    </script>
+</body>
+</html>

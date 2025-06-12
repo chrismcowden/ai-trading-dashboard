@@ -95,6 +95,87 @@
                     </span></div>
                 </div>
                 
+                ${data.tradeIdeas && data.tradeIdeas.length > 0 ? `
+                    <div class="card">
+                        <h3>🎯 Best Trade Ideas Being Tested</h3>
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid #ddd;">
+                                    <th style="text-align: left; padding: 8px;">Strategy</th>
+                                    <th style="text-align: left; padding: 8px;">Symbol</th>
+                                    <th style="text-align: left; padding: 8px;">Timeframe</th>
+                                    <th style="text-align: left; padding: 8px;">Sharpe</th>
+                                    <th style="text-align: left; padding: 8px;">Win Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.tradeIdeas.map(idea => `
+                                    <tr style="border-bottom: 1px solid #f0f0f0;">
+                                        <td style="padding: 8px;">${idea.name}</td>
+                                        <td style="padding: 8px;">${idea.symbol}</td>
+                                        <td style="padding: 8px;">${idea.timeframe}</td>
+                                        <td style="padding: 8px;">${idea.sharpeRatio.toFixed(3)}</td>
+                                        <td style="padding: 8px;">${(idea.winRate * 100).toFixed(1)}%</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                ` : ''}
+                
+                ${data.activeTrades && data.activeTrades.length > 0 ? `
+                    <div class="card">
+                        <h3>📈 Active Trades</h3>
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid #ddd;">
+                                    <th style="text-align: left; padding: 8px;">Strategy</th>
+                                    <th style="text-align: left; padding: 8px;">Symbol</th>
+                                    <th style="text-align: left; padding: 8px;">Entry</th>
+                                    <th style="text-align: left; padding: 8px;">Current</th>
+                                    <th style="text-align: left; padding: 8px;">P&L</th>
+                                    <th style="text-align: left; padding: 8px;">Duration</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.activeTrades.map(trade => {
+                                    const pnlClass = trade.pnl >= 0 ? 'positive' : 'negative';
+                                    return `
+                                        <tr style="border-bottom: 1px solid #f0f0f0;">
+                                            <td style="padding: 8px;">${trade.strategy}</td>
+                                            <td style="padding: 8px;">${trade.symbol}</td>
+                                            <td style="padding: 8px;">$${trade.entryPrice.toFixed(2)}</td>
+                                            <td style="padding: 8px;">$${trade.currentPrice.toFixed(2)}</td>
+                                            <td style="padding: 8px;" class="${pnlClass}">
+                                                $${trade.pnl.toFixed(2)} (${trade.pnlPct.toFixed(1)}%)
+                                            </td>
+                                            <td style="padding: 8px;">${trade.duration}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                ` : ''}
+                
+                <div class="card">
+                    <h3>📊 Performance Summary</h3>
+                    <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+                        <div>
+                            <div style="font-size: 14px; color: #666;">Total Trades</div>
+                            <div style="font-size: 20px; font-weight: bold;">${data.totalTrades || 0}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 14px; color: #666;">Win Rate</div>
+                            <div style="font-size: 20px; font-weight: bold;">${data.winRate || 0}%</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 14px; color: #666;">Active Strategies</div>
+                            <div style="font-size: 20px; font-weight: bold;">${data.activeStrategies || 0}</div>
+                        </div>
+                    </div>
+                </div>
+                
                 ${data.alerts && data.alerts.length > 0 ? `
                     <div class="card">
                         <h3>Recent Alerts</h3>

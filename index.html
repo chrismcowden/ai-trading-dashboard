@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Private Trading Dashboard</title>
+    <title>AI Trading Dashboard</title>
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
@@ -21,6 +21,7 @@
         .big { font-size: 32px; font-weight: bold; }
         .positive { color: #22c55e; }
         .negative { color: #ef4444; }
+        .warning { color: #f59e0b; }
         button {
             background: #3b82f6;
             color: white;
@@ -28,6 +29,119 @@
             padding: 10px 20px;
             border-radius: 5px;
             cursor: pointer;
+        }
+        button:hover { background: #2563eb; }
+        
+        /* Report Styles */
+        .report-section {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+        }
+        .report-header {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 12px;
+        }
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin: 16px 0;
+        }
+        .metric-card {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 4px;
+        }
+        .action-item {
+            padding: 8px 12px;
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            margin: 8px 0;
+            border-radius: 4px;
+        }
+        .strategy-card {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 8px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #e5e7eb;
+        }
+        .strategy-card.approved {
+            border-left: 4px solid #22c55e;
+        }
+        .strategy-card.pending {
+            border-left: 4px solid #f59e0b;
+        }
+        .tab-container {
+            margin: 20px 0;
+        }
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-button {
+            padding: 10px 20px;
+            background: #e5e7eb;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .tab-button.active {
+            background: white;
+            border-bottom: 2px solid #3b82f6;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .history-item {
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin: 8px 0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .history-item:hover {
+            background: #f3f4f6;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 2px solid #e5e7eb;
+            font-weight: 600;
+        }
+        td {
+            padding: 8px;
+            border-bottom: 1px solid #f3f4f6;
         }
     </style>
 </head>
@@ -38,14 +152,17 @@
         // No data in this file! Fetched after login
         netlifyIdentity.init();
         
+        let currentData = null;
+        let historicalReports = [];
+        
         function render() {
             const user = netlifyIdentity.currentUser();
             
             if (!user) {
                 document.getElementById('app').innerHTML = `
                     <div class="card" style="text-align: center; max-width: 400px; margin: 100px auto;">
-                        <h1>🔒 Private Dashboard</h1>
-                        <p>This dashboard contains private trading data</p>
+                        <h1>🔒 AI Trading Dashboard</h1>
+                        <p>This dashboard contains private trading data and reports</p>
                         <button onclick="netlifyIdentity.open();">Sign in with Google</button>
                     </div>
                 `;
@@ -56,7 +173,7 @@
         }
         
         async function fetchPrivateData(user) {
-            document.getElementById('app').innerHTML = '<div class="card">Loading...</div>';
+            document.getElementById('app').innerHTML = '<div class="card">Loading dashboard data...</div>';
             
             try {
                 const token = await user.jwt();
@@ -64,15 +181,32 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 
-                const data = await response.json();
-                displayDashboard(data, user);
+                currentData = await response.json();
+                
+                // Fetch historical reports
+                await fetchHistoricalReports(token);
+                
+                displayDashboard(currentData, user);
             } catch (error) {
                 document.getElementById('app').innerHTML = '<div class="card">Error loading data</div>';
             }
         }
         
+        async function fetchHistoricalReports(token) {
+            try {
+                const response = await fetch('/.netlify/functions/get-historical-reports', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                historicalReports = await response.json();
+            } catch (error) {
+                console.error('Failed to fetch historical reports:', error);
+                historicalReports = [];
+            }
+        }
+        
         function displayDashboard(data, user) {
             const returnClass = data.totalReturn >= 0 ? 'positive' : 'negative';
+            const hasReports = data.executive_summary || data.morning_memo;
             
             document.getElementById('app').innerHTML = `
                 <div style="text-align: right; margin-bottom: 10px;">
@@ -80,113 +214,235 @@
                     <button onclick="netlifyIdentity.logout();" style="margin-left: 10px;">Logout</button>
                 </div>
                 
-                <h1>📊 Trading Dashboard</h1>
+                <h1>🤖 AI Trading Dashboard</h1>
                 
-                <div class="card">
-                    <div>Balance</div>
-                    <div class="big">$${(data.balance || 0).toLocaleString()}</div>
-                    <div class="${returnClass}">${data.totalReturn >= 0 ? '+' : ''}${data.totalReturn}%</div>
-                </div>
-                
-                <div class="card">
-                    <div>Open Positions: ${data.positions || 0}</div>
-                    <div>Open P&L: <span class="${data.openPnL >= 0 ? 'positive' : 'negative'}">
-                        $${(data.openPnL || 0).toFixed(2)}
-                    </span></div>
-                </div>
-                
-                ${data.tradeIdeas && data.tradeIdeas.length > 0 ? `
+                <!-- Executive Summary Section -->
+                ${data.executive_summary ? `
                     <div class="card">
-                        <h3>🎯 Best Trade Ideas Being Tested</h3>
-                        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                            <thead>
-                                <tr style="border-bottom: 1px solid #ddd;">
-                                    <th style="text-align: left; padding: 8px;">Strategy</th>
-                                    <th style="text-align: left; padding: 8px;">Symbol</th>
-                                    <th style="text-align: left; padding: 8px;">Timeframe</th>
-                                    <th style="text-align: left; padding: 8px;">Sharpe</th>
-                                    <th style="text-align: left; padding: 8px;">Win Rate</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${data.tradeIdeas.map(idea => `
-                                    <tr style="border-bottom: 1px solid #f0f0f0;">
-                                        <td style="padding: 8px;">${idea.name}</td>
-                                        <td style="padding: 8px;">${idea.symbol}</td>
-                                        <td style="padding: 8px;">${idea.timeframe}</td>
-                                        <td style="padding: 8px;">${idea.sharpeRatio.toFixed(3)}</td>
-                                        <td style="padding: 8px;">${(idea.winRate * 100).toFixed(1)}%</td>
-                                    </tr>
+                        <h2>📊 Executive Summary - ${data.executive_summary.date}</h2>
+                        
+                        <div class="metric-grid">
+                            <div class="metric-card">
+                                <div class="metric-label">Daily P&L</div>
+                                <div class="metric-value ${data.executive_summary.headline_metrics.total_profit_loss >= 0 ? 'positive' : 'negative'}">
+                                    $${data.executive_summary.headline_metrics.total_profit_loss.toFixed(2)}
+                                    <span style="font-size: 14px;">
+                                        (${data.executive_summary.headline_metrics.profit_loss_percentage.toFixed(1)}%)
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div class="metric-card">
+                                <div class="metric-label">Win Rate</div>
+                                <div class="metric-value">${(data.executive_summary.headline_metrics.win_rate * 100).toFixed(0)}%</div>
+                            </div>
+                            
+                            <div class="metric-card">
+                                <div class="metric-label">Trades Today</div>
+                                <div class="metric-value">${data.executive_summary.headline_metrics.trades_executed}</div>
+                            </div>
+                            
+                            <div class="metric-card">
+                                <div class="metric-label">System Health</div>
+                                <div class="metric-value ${data.executive_summary.headline_metrics.system_health === 'OPERATIONAL' ? 'positive' : 'warning'}">
+                                    ${data.executive_summary.headline_metrics.system_health}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        ${data.executive_summary.action_items && data.executive_summary.action_items.length > 0 ? `
+                            <div class="report-section">
+                                <div class="report-header">⚡ Action Items</div>
+                                ${data.executive_summary.action_items.map(item => `
+                                    <div class="action-item">${item}</div>
                                 `).join('')}
-                            </tbody>
-                        </table>
+                            </div>
+                        ` : ''}
                     </div>
                 ` : ''}
                 
-                ${data.activeTrades && data.activeTrades.length > 0 ? `
+                <!-- Morning Memo Section -->
+                ${data.morning_memo ? `
                     <div class="card">
-                        <h3>📈 Active Trades</h3>
-                        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                            <thead>
-                                <tr style="border-bottom: 1px solid #ddd;">
-                                    <th style="text-align: left; padding: 8px;">Strategy</th>
-                                    <th style="text-align: left; padding: 8px;">Symbol</th>
-                                    <th style="text-align: left; padding: 8px;">Entry</th>
-                                    <th style="text-align: left; padding: 8px;">Current</th>
-                                    <th style="text-align: left; padding: 8px;">P&L</th>
-                                    <th style="text-align: left; padding: 8px;">Duration</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${data.activeTrades.map(trade => {
-                                    const pnlClass = trade.pnl >= 0 ? 'positive' : 'negative';
-                                    return `
-                                        <tr style="border-bottom: 1px solid #f0f0f0;">
-                                            <td style="padding: 8px;">${trade.strategy}</td>
-                                            <td style="padding: 8px;">${trade.symbol}</td>
-                                            <td style="padding: 8px;">$${trade.entryPrice.toFixed(2)}</td>
-                                            <td style="padding: 8px;">$${trade.currentPrice.toFixed(2)}</td>
-                                            <td style="padding: 8px;" class="${pnlClass}">
-                                                $${trade.pnl.toFixed(2)} (${trade.pnlPct.toFixed(1)}%)
-                                            </td>
-                                            <td style="padding: 8px;">${trade.duration}</td>
-                                        </tr>
-                                    `;
-                                }).join('')}
-                            </tbody>
-                        </table>
+                        <h2>☀️ Morning Memo - ${data.morning_memo.date}</h2>
+                        
+                        <div class="report-section">
+                            <div class="report-header">Market Outlook</div>
+                            <div style="display: flex; gap: 20px; align-items: center;">
+                                <div>
+                                    <strong>Trend:</strong> ${data.morning_memo.market_outlook.btc_trend}
+                                </div>
+                                <div>
+                                    <strong>Volatility:</strong> ${data.morning_memo.market_outlook.volatility}
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px; font-style: italic;">
+                                ${data.morning_memo.market_outlook.recommendation}
+                            </div>
+                        </div>
+                        
+                        <div class="report-section">
+                            <div class="report-header">Strategies for Today</div>
+                            
+                            ${data.morning_memo.strategies_for_today.approved_for_testing.length > 0 ? `
+                                <div style="margin: 10px 0;">
+                                    <strong>✅ Approved for Testing (${data.morning_memo.strategies_for_today.approved_for_testing.length})</strong>
+                                    ${data.morning_memo.strategies_for_today.approved_for_testing.map(id => `
+                                        <div class="strategy-card approved">
+                                            <span>${id}</span>
+                                            <span class="positive">Ready</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                            
+                            ${data.morning_memo.strategies_for_today.pending_human_review.length > 0 ? `
+                                <div style="margin: 10px 0;">
+                                    <strong>⏳ Pending Review (${data.morning_memo.strategies_for_today.pending_human_review.length})</strong>
+                                    ${data.morning_memo.strategies_for_today.pending_human_review.map(id => `
+                                        <div class="strategy-card pending">
+                                            <span>${id}</span>
+                                            <span class="warning">Review Required</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="report-section">
+                            <div class="report-header">Capital Allocation</div>
+                            <div class="metric-card">
+                                <div class="metric-label">Available Capital</div>
+                                <div class="metric-value">$${data.morning_memo.risk_allocation.available_capital.toFixed(2)}</div>
+                            </div>
+                        </div>
                     </div>
                 ` : ''}
                 
-                <div class="card">
-                    <h3>📊 Performance Summary</h3>
-                    <div style="display: flex; justify-content: space-between; margin-top: 10px;">
-                        <div>
-                            <div style="font-size: 14px; color: #666;">Total Trades</div>
-                            <div style="font-size: 20px; font-weight: bold;">${data.totalTrades || 0}</div>
+                <!-- Tab Navigation -->
+                <div class="tab-container">
+                    <div class="tab-buttons">
+                        <button class="tab-button active" onclick="switchTab('trading')">Trading Status</button>
+                        <button class="tab-button" onclick="switchTab('reports')">Historical Reports</button>
+                    </div>
+                    
+                    <!-- Trading Tab -->
+                    <div id="trading-tab" class="tab-content active">
+                        <div class="card">
+                            <div>Balance</div>
+                            <div class="big">$${(data.balance || 0).toLocaleString()}</div>
+                            <div class="${returnClass}">${data.totalReturn >= 0 ? '+' : ''}${data.totalReturn}%</div>
                         </div>
-                        <div>
-                            <div style="font-size: 14px; color: #666;">Win Rate</div>
-                            <div style="font-size: 20px; font-weight: bold;">${data.winRate || 0}%</div>
+                        
+                        <div class="card">
+                            <div>Open Positions: ${data.positions || 0}</div>
+                            <div>Open P&L: <span class="${data.openPnL >= 0 ? 'positive' : 'negative'}">
+                                $${(data.openPnL || 0).toFixed(2)}
+                            </span></div>
                         </div>
-                        <div>
-                            <div style="font-size: 14px; color: #666;">Active Strategies</div>
-                            <div style="font-size: 20px; font-weight: bold;">${data.activeStrategies || 0}</div>
+                        
+                        ${data.activeTrades && data.activeTrades.length > 0 ? `
+                            <div class="card">
+                                <h3>📈 Active Trades</h3>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Strategy</th>
+                                            <th>Symbol</th>
+                                            <th>Entry</th>
+                                            <th>Current</th>
+                                            <th>P&L</th>
+                                            <th>Duration</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${data.activeTrades.map(trade => {
+                                            const pnlClass = trade.pnl >= 0 ? 'positive' : 'negative';
+                                            return `
+                                                <tr>
+                                                    <td>${trade.strategy}</td>
+                                                    <td>${trade.symbol}</td>
+                                                    <td>$${trade.entryPrice.toFixed(2)}</td>
+                                                    <td>$${trade.currentPrice.toFixed(2)}</td>
+                                                    <td class="${pnlClass}">
+                                                        $${trade.pnl.toFixed(2)} (${trade.pnlPct.toFixed(1)}%)
+                                                    </td>
+                                                    <td>${trade.duration}</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- Historical Reports Tab -->
+                    <div id="reports-tab" class="tab-content">
+                        <div class="card">
+                            <h3>📅 Historical Reports</h3>
+                            ${historicalReports.length > 0 ? `
+                                <div style="max-height: 400px; overflow-y: auto;">
+                                    ${historicalReports.map(report => `
+                                        <div class="history-item" onclick="loadHistoricalReport('${report.date}')">
+                                            <div style="font-weight: bold;">${report.date}</div>
+                                            <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+                                                <span>P&L: <span class="${report.daily_pnl >= 0 ? 'positive' : 'negative'}">
+                                                    $${report.daily_pnl.toFixed(2)}
+                                                </span></span>
+                                                <span>Trades: ${report.trades}</span>
+                                                <span>Win Rate: ${report.win_rate}%</span>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : '<p>No historical reports available</p>'}
                         </div>
                     </div>
                 </div>
-                
-                ${data.alerts && data.alerts.length > 0 ? `
-                    <div class="card">
-                        <h3>Recent Alerts</h3>
-                        ${data.alerts.map(a => `<div>${a.message}</div>`).join('')}
-                    </div>
-                ` : ''}
                 
                 <div style="text-align: center; color: #666; margin-top: 20px;">
                     Last updated: ${new Date(data.lastUpdate).toLocaleString()}
                 </div>
             `;
+        }
+        
+        function switchTab(tabName) {
+            // Update button states
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update content visibility
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+        }
+        
+        async function loadHistoricalReport(date) {
+            const user = netlifyIdentity.currentUser();
+            if (!user) return;
+            
+            try {
+                const token = await user.jwt();
+                const response = await fetch(`/.netlify/functions/get-report?date=${date}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const report = await response.json();
+                
+                // Display historical report in a modal or update the main view
+                displayHistoricalReport(report);
+            } catch (error) {
+                console.error('Failed to load historical report:', error);
+            }
+        }
+        
+        function displayHistoricalReport(report) {
+            // This would show the historical report in a modal or replace the current view
+            alert(`Historical report for ${report.date} loaded. P&L: $${report.daily_pnl}`);
         }
         
         netlifyIdentity.on('login', () => {

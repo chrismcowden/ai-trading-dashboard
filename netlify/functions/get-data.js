@@ -1,4 +1,7 @@
 // netlify/functions/get-data.js
+const fs = require('fs');
+const path = require('path');
+
 exports.handler = async (event, context) => {
     // Check authentication
     if (!context.clientContext?.user) {
@@ -8,16 +11,31 @@ exports.handler = async (event, context) => {
         };
     }
     
-    // Get data from environment variable
-    // This is set by your trading system via Netlify API
-    let dashboardData;
+    let dashboardData = { balance: 10000, positions: 0 };
+    
+    // Try to read from uploaded dashboard_data.json file first
     try {
-        dashboardData = process.env.DASHBOARD_DATA ? 
-            JSON.parse(process.env.DASHBOARD_DATA) : 
-            { balance: 10000, positions: 0 };
+        const dataPath = path.join(process.cwd(), 'dashboard_data.json');
+        if (fs.existsSync(dataPath)) {
+            const fileData = fs.readFileSync(dataPath, 'utf8');
+            dashboardData = JSON.parse(fileData);
+            console.log('Loaded data from dashboard_data.json');
+        }
     } catch (e) {
-        console.error('Failed to parse dashboard data:', e);
-        dashboardData = { balance: 10000, positions: 0 };
+        console.log('Could not read dashboard_data.json, trying environment variable');
+    }
+    
+    // Fallback to environment variable if file doesn't exist
+    if (!dashboardData.lastUpdate) {
+        try {
+            dashboardData = process.env.DASHBOARD_DATA ? 
+                JSON.parse(process.env.DASHBOARD_DATA) : 
+                { balance: 10000, positions: 0 };
+            console.log('Loaded data from environment variable');
+        } catch (e) {
+            console.error('Failed to parse dashboard data from env:', e);
+            dashboardData = { balance: 10000, positions: 0 };
+        }
     }
     
     // Ensure all required fields exist

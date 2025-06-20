@@ -13,16 +13,24 @@ exports.handler = async (event, context) => {
     
     let dashboardData = { balance: 10000, positions: 0 };
     
-    // Try to read from uploaded dashboard_data.json file first
+    // Try to read from static dashboard_data.json file first
     try {
-        const dataPath = path.join(process.cwd(), 'dashboard_data.json');
+        // In Netlify, static files are in the publish directory
+        const staticDataPath = path.join(__dirname, '../../dashboard_data.json');
+        const rootDataPath = path.join(process.cwd(), 'dashboard_data.json');
+        
+        let dataPath = staticDataPath;
+        if (!fs.existsSync(staticDataPath) && fs.existsSync(rootDataPath)) {
+            dataPath = rootDataPath;
+        }
+        
         if (fs.existsSync(dataPath)) {
             const fileData = fs.readFileSync(dataPath, 'utf8');
             dashboardData = JSON.parse(fileData);
-            console.log('Loaded data from dashboard_data.json');
+            console.log(`Loaded data from dashboard_data.json at ${dataPath}`);
         }
     } catch (e) {
-        console.log('Could not read dashboard_data.json, trying environment variable');
+        console.log('Could not read dashboard_data.json, trying environment variable:', e.message);
     }
     
     // Fallback to environment variable if file doesn't exist

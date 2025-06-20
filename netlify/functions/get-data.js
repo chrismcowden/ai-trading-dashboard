@@ -33,6 +33,7 @@ exports.handler = async (event, context) => {
         alerts: [],
         tradeIdeas: [],
         activeTrades: [],
+        liveStrategies: [],
         executive_summary: null,
         morning_memo: null,
         ...dashboardData

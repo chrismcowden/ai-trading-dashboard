@@ -40,6 +40,19 @@
             padding: 16px;
             margin: 12px 0;
         }
+        
+        /* Strategy Status Indicators */
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        .status-indicator.active { background: #22c55e; }
+        .status-indicator.monitoring { background: #3b82f6; }
+        .status-indicator.paused { background: #f59e0b; }
+        .status-indicator.stopped { background: #ef4444; }
         .report-header {
             font-size: 18px;
             font-weight: 600;
@@ -318,6 +331,95 @@
                         </div>
                     </div>
                 ` : ''}
+                
+                <!-- Live Strategies Section -->
+                <div class="card">
+                    <h2>🚀 Live Trading Strategies</h2>
+                    ${data.liveStrategies && data.liveStrategies.length > 0 ? `
+                        <div style="overflow-x: auto;">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Strategy</th>
+                                        <th>Symbol</th>
+                                        <th>Status</th>
+                                        <th>Entry Time</th>
+                                        <th>Position</th>
+                                        <th>Current P&L</th>
+                                        <th>Today's P&L</th>
+                                        <th>Total Trades</th>
+                                        <th>Win Rate</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.liveStrategies.map(strategy => {
+                                        const pnlClass = strategy.currentPnL >= 0 ? 'positive' : 'negative';
+                                        const todayPnlClass = strategy.todayPnL >= 0 ? 'positive' : 'negative';
+                                        const statusColor = {
+                                            'active': '#22c55e',
+                                            'monitoring': '#3b82f6',
+                                            'paused': '#f59e0b',
+                                            'stopped': '#ef4444'
+                                        }[strategy.status] || '#6b7280';
+                                        
+                                        return `
+                                            <tr>
+                                                <td style="font-weight: 600;">${strategy.name}</td>
+                                                <td>${strategy.symbol}</td>
+                                                <td><span style="color: ${statusColor}; font-weight: 500;">${strategy.status.toUpperCase()}</span></td>
+                                                <td>${new Date(strategy.deployedAt).toLocaleDateString()}</td>
+                                                <td>${strategy.hasPosition ? `${strategy.positionSize} @ $${strategy.entryPrice}` : 'No Position'}</td>
+                                                <td class="${pnlClass}" style="font-weight: 600;">
+                                                    $${strategy.currentPnL.toFixed(2)} (${strategy.currentPnLPct.toFixed(1)}%)
+                                                </td>
+                                                <td class="${todayPnlClass}">
+                                                    $${strategy.todayPnL.toFixed(2)}
+                                                </td>
+                                                <td>${strategy.totalTrades}</td>
+                                                <td>${strategy.winRate.toFixed(0)}%</td>
+                                                <td>
+                                                    ${strategy.hasPosition ? 
+                                                        '<button onclick="alert(\'Position details would be shown here\')" style="padding: 5px 10px; font-size: 12px;">Details</button>' :
+                                                        '<span style="color: #6b7280;">Waiting</span>'
+                                                    }
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="metric-grid" style="margin-top: 20px;">
+                            <div class="metric-card">
+                                <div class="metric-label">Active Strategies</div>
+                                <div class="metric-value">${data.liveStrategies.filter(s => s.status === 'active').length}</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Total Positions</div>
+                                <div class="metric-value">${data.liveStrategies.filter(s => s.hasPosition).length}</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Today's Strategy P&L</div>
+                                <div class="metric-value ${data.liveStrategies.reduce((sum, s) => sum + s.todayPnL, 0) >= 0 ? 'positive' : 'negative'}">
+                                    $${data.liveStrategies.reduce((sum, s) => sum + s.todayPnL, 0).toFixed(2)}
+                                </div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Overall Win Rate</div>
+                                <div class="metric-value">
+                                    ${data.liveStrategies.length > 0 ? 
+                                        (data.liveStrategies.reduce((sum, s) => sum + s.winRate, 0) / data.liveStrategies.length).toFixed(0) : 0}%
+                                </div>
+                            </div>
+                        </div>
+                    ` : `
+                        <div class="report-section">
+                            <p style="text-align: center; color: #6b7280;">No live strategies currently deployed</p>
+                        </div>
+                    `}
+                </div>
                 
                 <!-- Tab Navigation -->
                 <div class="tab-container">

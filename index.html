@@ -188,39 +188,50 @@
         async function fetchPrivateData(user) {
             document.getElementById('app').innerHTML = '<div class="card">Loading dashboard data...</div>';
             
+            let functionData = null;
+            let staticData = null;
+            
+            // Try both sources
             try {
-                // Try function first
+                // Get function data
                 const token = await user.jwt();
                 const response = await fetch('/.netlify/functions/get-data', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 
                 if (response.ok) {
-                    currentData = await response.json();
+                    functionData = await response.json();
+                }
+                
+                // Get static data
+                const staticResponse = await fetch('/dashboard_data.json');
+                staticData = await staticResponse.json();
+                
+                // Use static data if it has more comprehensive info
+                if (staticData && staticData.liveStrategies && staticData.liveStrategies.length > 0) {
+                    console.log('Using static data (more comprehensive)');
+                    currentData = staticData;
+                } else if (functionData && functionData.liveStrategies && functionData.liveStrategies.length > 0) {
+                    console.log('Using function data (has live strategies)');
+                    currentData = functionData;
+                } else if (staticData) {
+                    console.log('Using static data (fallback)');
+                    currentData = staticData;
                 } else {
-                    throw new Error('Function failed, trying static file');
+                    console.log('Using function data (final fallback)');
+                    currentData = functionData || { balance: 10000, totalReturn: 0 };
                 }
                 
                 // Fetch historical reports
-                await fetchHistoricalReports(token);
+                if (user) {
+                    await fetchHistoricalReports(await user.jwt());
+                }
                 
                 displayDashboard(currentData, user);
-            } catch (error) {
-                console.log('Function failed, trying static file fallback:', error);
                 
-                // Fallback to static file
-                try {
-                    const staticResponse = await fetch('/dashboard_data.json');
-                    currentData = await staticResponse.json();
-                    
-                    // Mock empty historical reports for static mode
-                    historicalReports = [];
-                    
-                    displayDashboard(currentData, user);
-                } catch (staticError) {
-                    console.error('Both function and static file failed:', staticError);
-                    document.getElementById('app').innerHTML = '<div class="card">Error loading data from both sources</div>';
-                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.getElementById('app').innerHTML = '<div class="card">Error loading data. Check console for details.</div>';
             }
         }
         

@@ -189,19 +189,38 @@
             document.getElementById('app').innerHTML = '<div class="card">Loading dashboard data...</div>';
             
             try {
+                // Try function first
                 const token = await user.jwt();
                 const response = await fetch('/.netlify/functions/get-data', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 
-                currentData = await response.json();
+                if (response.ok) {
+                    currentData = await response.json();
+                } else {
+                    throw new Error('Function failed, trying static file');
+                }
                 
                 // Fetch historical reports
                 await fetchHistoricalReports(token);
                 
                 displayDashboard(currentData, user);
             } catch (error) {
-                document.getElementById('app').innerHTML = '<div class="card">Error loading data</div>';
+                console.log('Function failed, trying static file fallback:', error);
+                
+                // Fallback to static file
+                try {
+                    const staticResponse = await fetch('/dashboard_data.json');
+                    currentData = await staticResponse.json();
+                    
+                    // Mock empty historical reports for static mode
+                    historicalReports = [];
+                    
+                    displayDashboard(currentData, user);
+                } catch (staticError) {
+                    console.error('Both function and static file failed:', staticError);
+                    document.getElementById('app').innerHTML = '<div class="card">Error loading data from both sources</div>';
+                }
             }
         }
         

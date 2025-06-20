@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Dashboard Data</title>
+    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+</head>
+<body>
+    <h1>Testing Dashboard Data</h1>
+    <div id="test-results"></div>
+    
+    <script>
+        netlifyIdentity.init();
+        
+        async function testDataSources() {
+            const results = document.getElementById('test-results');
+            
+            // Test 1: Static file
+            try {
+                const staticResponse = await fetch('/dashboard_data.json');
+                const staticData = await staticResponse.json();
+                results.innerHTML += '<h2>✅ Static File Works</h2>';
+                results.innerHTML += `<pre>${JSON.stringify(staticData, null, 2).substring(0, 500)}...</pre>`;
+            } catch (e) {
+                results.innerHTML += '<h2>❌ Static File Failed</h2>';
+                results.innerHTML += `<p>Error: ${e.message}</p>`;
+            }
+            
+            // Test 2: Function (if authenticated)
+            const user = netlifyIdentity.currentUser();
+            if (user) {
+                try {
+                    const token = await user.jwt();
+                    const funcResponse = await fetch('/.netlify/functions/get-data', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const funcData = await funcResponse.json();
+                    results.innerHTML += '<h2>✅ Function Works</h2>';
+                    results.innerHTML += `<pre>${JSON.stringify(funcData, null, 2).substring(0, 500)}...</pre>`;
+                } catch (e) {
+                    results.innerHTML += '<h2>❌ Function Failed</h2>';
+                    results.innerHTML += `<p>Error: ${e.message}</p>`;
+                }
+            } else {
+                results.innerHTML += '<h2>⚠️ Not Authenticated</h2>';
+                results.innerHTML += '<button onclick="netlifyIdentity.open();">Login to test function</button>';
+            }
+        }
+        
+        if (netlifyIdentity.currentUser()) {
+            testDataSources();
+        } else {
+            netlifyIdentity.on('login', () => {
+                testDataSources();
+                netlifyIdentity.close();
+            });
+            document.getElementById('test-results').innerHTML = '<button onclick="netlifyIdentity.open();">Login to test</button>';
+        }
+    </script>
+</body>
+</html>

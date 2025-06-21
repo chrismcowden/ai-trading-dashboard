@@ -188,39 +188,23 @@
         async function fetchPrivateData(user) {
             document.getElementById('app').innerHTML = '<div class="card">Loading dashboard data...</div>';
             
-            let functionData = null;
-            let staticData = null;
-            
-            // Try both sources
+            // Get real data from function (environment variable)
             try {
-                // Get function data
                 const token = await user.jwt();
                 const response = await fetch('/.netlify/functions/get-data', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 
                 if (response.ok) {
-                    functionData = await response.json();
-                }
-                
-                // Get static data as fallback
-                try {
-                    const staticResponse = await fetch('/dashboard_data.json');
-                    staticData = await staticResponse.json();
-                } catch (e) {
-                    console.log('Could not load static data:', e);
-                }
-                
-                // Prioritize function data (from environment variable)
-                if (functionData && functionData.balance) {
-                    console.log('Using function data (environment variable)');
-                    currentData = functionData;
-                } else if (staticData) {
-                    console.log('Using static data (fallback)');
-                    currentData = staticData;
+                    currentData = await response.json();
+                    console.log('Loaded real-time data from environment variable');
                 } else {
-                    console.log('Using default data');
-                    currentData = { balance: 10000, totalReturn: 0 };
+                    console.error('Failed to load data:', response.status);
+                    currentData = { 
+                        balance: 0, 
+                        totalReturn: 0,
+                        error: 'Unable to load real-time data' 
+                    };
                 }
                 
                 // Fetch historical reports

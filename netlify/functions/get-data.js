@@ -1,6 +1,4 @@
 // netlify/functions/get-data.js
-const fs = require('fs');
-const path = require('path');
 
 exports.handler = async (event, context) => {
     // Check authentication
@@ -11,44 +9,28 @@ exports.handler = async (event, context) => {
         };
     }
     
-    let dashboardData = { balance: 10000, positions: 0 };
+    // Load data from environment variable only
+    let dashboardData = null;
     
-    // First priority: Try environment variable (most up-to-date)
     try {
-        const envData = process.env.DASHBOARD_DATA ? 
-            JSON.parse(process.env.DASHBOARD_DATA) : null;
-        
-        if (envData) {
-            dashboardData = envData;
-            console.log('Loaded data from DASHBOARD_DATA environment variable');
+        if (process.env.DASHBOARD_DATA) {
+            dashboardData = JSON.parse(process.env.DASHBOARD_DATA);
+            console.log('Loaded real-time data from DASHBOARD_DATA environment variable');
+        } else {
+            console.error('DASHBOARD_DATA environment variable not set');
+            dashboardData = {
+                error: 'No real-time data available',
+                balance: 0,
+                positions: 0
+            };
         }
     } catch (e) {
         console.error('Failed to parse dashboard data from env:', e);
-    }
-    
-    // Second priority: Try static file as fallback
-    if (!dashboardData.liveStrategies || dashboardData.liveStrategies.length === 0) {
-        try {
-            // In Netlify, static files are in the publish directory
-            const staticDataPath = path.join(__dirname, '../../dashboard_data.json');
-            const rootDataPath = path.join(process.cwd(), 'dashboard_data.json');
-            
-            let dataPath = staticDataPath;
-            if (!fs.existsSync(staticDataPath) && fs.existsSync(rootDataPath)) {
-                dataPath = rootDataPath;
-            }
-            
-            if (fs.existsSync(dataPath)) {
-                const fileData = fs.readFileSync(dataPath, 'utf8');
-                const staticData = JSON.parse(fileData);
-                if (staticData.liveStrategies && staticData.liveStrategies.length > 0) {
-                    dashboardData = staticData;
-                    console.log(`Loaded data from dashboard_data.json at ${dataPath}`);
-                }
-            }
-        } catch (e) {
-            console.log('Could not read dashboard_data.json:', e.message);
-        }
+        dashboardData = {
+            error: 'Failed to parse real-time data',
+            balance: 0,
+            positions: 0
+        };
     }
     
     // Ensure all required fields exist

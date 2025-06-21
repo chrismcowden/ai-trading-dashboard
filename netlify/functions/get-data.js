@@ -33,16 +33,20 @@ exports.handler = async (event, context) => {
         console.log('Could not read dashboard_data.json, trying environment variable:', e.message);
     }
     
-    // Fallback to environment variable if file doesn't exist
-    if (!dashboardData.lastUpdate) {
+    // Always try environment variable as backup
+    if (!dashboardData.liveStrategies || dashboardData.liveStrategies.length === 0) {
         try {
-            dashboardData = process.env.DASHBOARD_DATA ? 
-                JSON.parse(process.env.DASHBOARD_DATA) : 
-                { balance: 10000, positions: 0 };
-            console.log('Loaded data from environment variable');
+            const envData = process.env.DASHBOARD_DATA ? 
+                JSON.parse(process.env.DASHBOARD_DATA) : null;
+            
+            if (envData && envData.liveStrategies && envData.liveStrategies.length > 0) {
+                dashboardData = envData;
+                console.log('Loaded comprehensive data from environment variable');
+            } else {
+                console.log('Environment variable has no live strategies, using file data or defaults');
+            }
         } catch (e) {
             console.error('Failed to parse dashboard data from env:', e);
-            dashboardData = { balance: 10000, positions: 0 };
         }
     }
     

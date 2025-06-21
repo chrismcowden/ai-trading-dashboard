@@ -203,23 +203,24 @@
                     functionData = await response.json();
                 }
                 
-                // Get static data
-                const staticResponse = await fetch('/dashboard_data.json');
-                staticData = await staticResponse.json();
+                // Get static data as fallback
+                try {
+                    const staticResponse = await fetch('/dashboard_data.json');
+                    staticData = await staticResponse.json();
+                } catch (e) {
+                    console.log('Could not load static data:', e);
+                }
                 
-                // Use static data if it has more comprehensive info
-                if (staticData && staticData.liveStrategies && staticData.liveStrategies.length > 0) {
-                    console.log('Using static data (more comprehensive)');
-                    currentData = staticData;
-                } else if (functionData && functionData.liveStrategies && functionData.liveStrategies.length > 0) {
-                    console.log('Using function data (has live strategies)');
+                // Prioritize function data (from environment variable)
+                if (functionData && functionData.balance) {
+                    console.log('Using function data (environment variable)');
                     currentData = functionData;
                 } else if (staticData) {
                     console.log('Using static data (fallback)');
                     currentData = staticData;
                 } else {
-                    console.log('Using function data (final fallback)');
-                    currentData = functionData || { balance: 10000, totalReturn: 0 };
+                    console.log('Using default data');
+                    currentData = { balance: 10000, totalReturn: 0 };
                 }
                 
                 // Fetch historical reports
